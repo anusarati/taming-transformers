@@ -10,24 +10,31 @@ from taming.util import get_ckpt_path
 
 class LPIPS(nn.Module):
     # Learned perceptual metric
-    def __init__(self, use_dropout=True):
+    def __init__(self, use_dropout=True, custom_checkpoint=None, scale_params=None):
         super().__init__()
-        self.scaling_layer = ScalingLayer()
-        self.chns = [64, 128, 256, 512, 512]  # vg16 features
-        self.net = vgg16(pretrained=True, requires_grad=False)
-        self.lin0 = NetLinLayer(self.chns[0], use_dropout=use_dropout)
-        self.lin1 = NetLinLayer(self.chns[1], use_dropout=use_dropout)
-        self.lin2 = NetLinLayer(self.chns[2], use_dropout=use_dropout)
-        self.lin3 = NetLinLayer(self.chns[3], use_dropout=use_dropout)
-        self.lin4 = NetLinLayer(self.chns[4], use_dropout=use_dropout)
-        self.load_from_pretrained()
+        self.scaling_layer = ScalingLayer(scale_params)
+        if custom_checkpoint:
+            net = torch.load(custom_checkpoint, map_location='cpu')
+            self.chns = net.config.hidden_sizes
+            self.net = lambda *a, **kw: net(*a, **kw, output_hidden_states=True).hidden_states
+        else:
+            self.chns = [64, 128, 256, 512, 512]  # vg16 features
+            self.net = vgg16(pretrained=True, requires_grad=False)
+        self.lins = []
+        for chn in self.chns:
+            self.lins.append(NetLinLayer(chn, use_dropout=use_dropout))
+        self.lins = nn.ModuleList(self.lins)
         for param in self.parameters():
             param.requires_grad = False
 
-    def load_from_pretrained(self, name="vgg_lpips"):
-        ckpt = get_ckpt_path(name, "taming/modules/autoencoder/lpips")
-        self.load_state_dict(torch.load(ckpt, map_location=torch.device("cpu")), strict=False)
-        print("loaded pretrained LPIPS loss from {}".format(ckpt))
+    def load_from_pretrained(self, custom):
+        if custom:
+            self.net = torch.load(custom, map_location='cpu')
+        else:
+            name = 'vgg_lpips'
+            ckpt = get_ckpt_path(name, "taming/modules/autoencoder/lpips")
+            self.load_state_dict(torch.load(ckpt, map_location=torch.device("cpu")), strict=False)
+            print("loaded pretrained LPIPS loss from {}".format(ckpt))
 
     @classmethod
     def from_pretrained(cls, name="vgg_lpips"):
@@ -55,10 +62,15 @@ class LPIPS(nn.Module):
 
 
 class ScalingLayer(nn.Module):
-    def __init__(self):
+    def __init__(self, scale_params=None):
         super(ScalingLayer, self).__init__()
-        self.register_buffer('shift', torch.Tensor([-.030, -.088, -.188])[None, :, None, None])
-        self.register_buffer('scale', torch.Tensor([.458, .448, .450])[None, :, None, None])
+        if scale_params:
+            # mean and stdev for images
+            self.register_buffer('shift', torch.Tensor(scale_params[0])[None, :, None, None])
+            self.register_buffer('scale', torch.Tensor(scale_params[1])[None, :, None, None])
+        else:
+            self.register_buffer('shift', torch.Tensor([-.030, -.088, -.188])[None, :, None, None])
+            self.register_buffer('scale', torch.Tensor([.458, .448, .450])[None, :, None, None])
 
     def forward(self, inp):
         return (inp - self.shift) / self.scale
