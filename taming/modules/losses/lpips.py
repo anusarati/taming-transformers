@@ -6,7 +6,7 @@ from torchvision import models
 from collections import namedtuple
 
 from taming.util import get_ckpt_path
-from transformers import ConvNextV2
+from transformers import ConvNextV2Model
 
 
 class LPIPS(nn.Module):
