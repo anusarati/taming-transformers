@@ -24,15 +24,10 @@ class LPIPS(nn.Module):
             self.net = vgg16(pretrained=True, requires_grad=False)
         self.lins = []
         for chn in self.chns:
-            self.lins.append(NetLinLayer(chn, use_dropout=use_dropout))
+            self.lins.append(NetLinLayer(chn, use_dropout=use_dropout, custom_checkpoint=custom_checkpoint))
         self.lins = nn.ModuleList(self.lins)
         for param in self.parameters():
             param.requires_grad = False
-        if custom_checkpoint:
-            for lin in self.lins:
-                # https://arxiv.org/pdf/1801.03924
-                nn.init.ones_(lin.weight)
-                
 
     def load_from_pretrained(self, custom):
         if custom:
@@ -84,10 +79,12 @@ class ScalingLayer(nn.Module):
 
 class NetLinLayer(nn.Module):
     """ A single linear layer which does a 1x1 conv """
-    def __init__(self, chn_in, chn_out=1, use_dropout=False):
+    def __init__(self, chn_in, chn_out=1, use_dropout=False, custom_checkpoint=None):
         super(NetLinLayer, self).__init__()
         layers = [nn.Dropout(), ] if (use_dropout) else []
         layers += [nn.Conv2d(chn_in, chn_out, 1, stride=1, padding=0, bias=False), ]
+        if custom_checkpoint:
+            nn.init.ones_(layers[-1].weight)
         self.model = nn.Sequential(*layers)
 
 
