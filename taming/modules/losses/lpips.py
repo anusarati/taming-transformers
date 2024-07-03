@@ -6,8 +6,6 @@ from torchvision import models
 from collections import namedtuple
 
 from taming.util import get_ckpt_path
-from transformers import ConvNextV2Model
-
 
 class LPIPS(nn.Module):
     # Learned perceptual metric
@@ -53,6 +51,7 @@ class LPIPS(nn.Module):
         feats0, feats1, diffs = {}, {}, {}
         for kk in range(len(self.chns)):
             feats0[kk], feats1[kk] = normalize_tensor(outs0[kk]), normalize_tensor(outs1[kk])
+            feats0[kk] = feats0[kk][..., :feats1[kk].shape[-2], :feats1[kk].shape[-1]]
             diffs[kk] = (feats0[kk] - feats1[kk]) ** 2
 
         res = [spatial_average(self.lins[kk].model(diffs[kk]), keepdim=True) for kk in range(len(self.chns))]
