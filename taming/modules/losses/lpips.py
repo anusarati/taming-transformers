@@ -28,6 +28,11 @@ class LPIPS(nn.Module):
         self.lins = nn.ModuleList(self.lins)
         for param in self.parameters():
             param.requires_grad = False
+        if custom_checkpoint:
+            for lin in self.lins:
+                # https://arxiv.org/pdf/1801.03924
+                nn.init.ones_(lin.weight)
+                
 
     def load_from_pretrained(self, custom):
         if custom:
