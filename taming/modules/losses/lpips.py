@@ -17,7 +17,7 @@ class LPIPS(nn.Module):
         if custom_checkpoint:
             self._net = net = torch.load(custom_checkpoint, map_location='cpu')
             self._net.requires_grad_(False)
-            self.chns = net.config.hidden_sizes
+            self.chns = [net.config.hidden_sizes[0]] + net.config.hidden_sizes
             self.net = lambda *a, **kw: self._net(*a, **kw, output_hidden_states=True).hidden_states
         else:
             self.chns = [64, 128, 256, 512, 512]  # vg16 features
