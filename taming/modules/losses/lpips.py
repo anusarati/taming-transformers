@@ -16,6 +16,7 @@ class LPIPS(nn.Module):
         self.scaling_layer = ScalingLayer(scale_params)
         if custom_checkpoint:
             self._net = net = torch.load(custom_checkpoint, map_location='cpu')
+            self._net.requires_grad_(False)
             self.chns = net.config.hidden_sizes
             self.net = lambda *a, **kw: self._net(*a, **kw, output_hidden_states=True).hidden_states
         else:
