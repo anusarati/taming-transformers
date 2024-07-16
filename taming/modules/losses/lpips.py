@@ -12,6 +12,9 @@ class LPIPS(nn.Module):
     def __init__(self, use_dropout=True, custom_checkpoint=None, scale_params=None):
         super().__init__()
         self.scaling_layer = ScalingLayer(scale_params)
+
+        self.regular = not bool(custom_checkpoint)
+
         if custom_checkpoint:
             self._net = net = torch.load(custom_checkpoint, map_location='cpu')
             self._net.requires_grad_(False)
@@ -46,6 +49,8 @@ class LPIPS(nn.Module):
         return model
 
     def forward(self, input, target):
+        if self.regular and input.shape[1] == 1:
+            input = input.repeat([1,3,1,1])
         in0_input, in1_input = (self.scaling_layer(input), self.scaling_layer(target))
         outs0, outs1 = self.net(in0_input), self.net(in1_input)
         feats0, feats1, diffs = {}, {}, {}
